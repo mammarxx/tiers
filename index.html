@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Water Use Reporting Tier Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px 24px 28px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.4rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px 24px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 0.9rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+    button {
+      margin-top: 8px;
+      padding: 8px 16px;
+      font-size: 0.95rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #0059a3;
+      color: #fff;
+    }
+    button:hover {
+      background: #00457f;
+    }
+    .results {
+      margin-top: 20px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #f0f4ff;
+      border: 1px solid #ccd6ff;
+    }
+    .results h2 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+    }
+    .results p {
+      margin: 2px 0;
+      font-size: 0.95rem;
+    }
+    .warning {
+      background: #fff4e5;
+      border-color: #f6c88f;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Measurement & Reporting Tier Assignment</h1>
+    <p style="font-size:0.9rem; margin-bottom:16px;">
+      Select all four criteria to view the assigned tier and minimum measurement and reporting requirements.
+    </p>
+
+    <div class="grid">
+      <div>
+        <label for="allocation">Licensed allocation (annual volume)</label>
+        <select id="allocation">
+          <option value="">-- Select allocation --</option>
+          <option value=">=1000000">&ge; 1,000,000 m³</option>
+          <option value="500000-999999">500,000–999,999 m³</option>
+          <option value="<500000">&lt; 500,000 m³</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="rate">Diversion rate (m³/s)</label>
+        <select id="rate">
+          <option value="">-- Select rate --</option>
+          <option value=">=0.1">&ge; 0.1 m³/s</option>
+          <option value="0.05-0.099">0.05–0.099 m³/s</option>
+          <option value="<0.05">&lt; 0.05 m³/s</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="purpose">Purpose / sector</label>
+        <select id="purpose">
+          <option value="">-- Select purpose --</option>
+          <option value="Irrigation district">Irrigation district</option>
+          <option value="Municipal use above 50000 people">Municipal use above 50,000 people</option>
+          <option value="Municipal use above 10000 people">Municipal use above 10,000 people</option>
+          <option value="Municipal use above 2500 people">Municipal use above 2,500 people</option>
+          <option value="Municipal use above 1000 people">Municipal use above 1,000 people</option>
+          <option value="Other municipal use">Other municipal use</option>
+          <option value="Thermal power generation">Thermal power generation</option>
+          <option value="Hydro power generation">Hydro power generation</option>
+          <option value="Upstream oil and gas">Upstream oil and gas</option>
+          <option value="Downstream oil and gas">Downstream oil and gas</option>
+          <option value="Large commercial (manufacturing and processing)">Large commercial (manufacturing and processing)</option>
+          <option value="Commercial">Commercial</option>
+          <option value="Water management">Water management</option>
+          <option value="Construction and transportation">Construction and transportation</option>
+          <option value="Irrigation (private)">Irrigation (private)</option>
+          <option value="Irrigation (private) above 500000 m3">Irrigation (private) above 500,000 m³</option>
+          <option value="Other agricultural">Other agricultural</option>
+          <option value="Other agricultural above 500000 m3">Other agricultural above 500,000 m³</option>
+          <option value="Recreation">Recreation</option>
+          <option value="Other industry (inc. mining)">Other industry (inc. mining)</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="waterShort">Located in water-short area?</label>
+        <select id="waterShort">
+          <option value="">-- Select --</option>
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="button" onclick="calculateTier()">Get Tier</button>
+
+    <div id="results" class="results" style="display:none;"></div>
+  </div>
+
+  <script>
+  // === DATA: Replace / extend this with your full lookup table ===
+  // Each entry matches one row from your Excel lookup:
+  // allocation, rate, purpose, waterShort, tier, measurement, reporting
+    const rules = [
+      { allocation: ">=1000000", rate: ">=0.1", purpose: "Irrigation district", waterShort: "No", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Irrigation district", waterShort: "Yes", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Thermal power generation", waterShort: "No", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Thermal power generation", waterShort: "Yes", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Downstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Hydro power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Hydro power generation", waterShort: "Yes", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "1", measurement: "Daily", reporting: "Weekly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Upstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Water management", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Water management", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Construction and transportation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Construction and transportation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Recreation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Recreation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Irrigation (private)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Irrigation (private)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Commercial", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Commercial", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other agricultural", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other agricultural", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other municipal use", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: ">=0.1", purpose: "Other municipal use", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Irrigation district", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Irrigation district", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Thermal power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Thermal power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Downstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Hydro power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Hydro power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Upstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Water management", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Water management", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Construction and transportation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Construction and transportation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Recreation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Recreation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Irrigation (private)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Irrigation (private)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Commercial", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Commercial", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other agricultural", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other agricultural", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other municipal use", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "0.05-0.099", purpose: "Other municipal use", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Irrigation district", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Irrigation district", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Thermal power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Thermal power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Downstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Hydro power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Hydro power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Upstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Water management", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Water management", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Construction and transportation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Construction and transportation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Recreation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Recreation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Irrigation (private)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Irrigation (private)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Commercial", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Commercial", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other agricultural", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other agricultural", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other municipal use", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: ">=1000000", rate: "<0.05", purpose: "Other municipal use", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Irrigation district", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Irrigation district", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Thermal power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Thermal power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Downstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Hydro power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Hydro power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Upstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Water management", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Water management", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Construction and transportation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Construction and transportation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Recreation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Recreation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Irrigation (private)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Irrigation (private)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Commercial", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Commercial", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other agricultural", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other agricultural", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other municipal use", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: ">=0.1", purpose: "Other municipal use", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Irrigation district", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Irrigation district", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Thermal power generation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Thermal power generation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Downstream oil and gas", waterShort: "No", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Hydro power generation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Hydro power generation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Upstream oil and gas", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Water management", waterShort: "No", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Water management", waterShort: "Yes", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Construction and transportation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Construction and transportation", waterShort: "Yes", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Recreation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Recreation", waterShort: "Yes", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "2", measurement: "Monthly ", reporting: "Quarterly" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Irrigation (private)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Irrigation (private)", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Commercial", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Commercial", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other agricultural", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other agricultural", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other municipal use", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "0.05-0.099", purpose: "Other municipal use", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Irrigation district", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Irrigation district", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Thermal power generation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Thermal power generation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Downstream oil and gas", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Hydro power generation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Hydro power generation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Upstream oil and gas", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Water management", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Water management", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Construction and transportation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Construction and transportation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Recreation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Recreation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Irrigation (private)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Irrigation (private)", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Commercial", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Commercial", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other agricultural", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other agricultural", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other municipal use", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "500000-999999", rate: "<0.05", purpose: "Other municipal use", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Irrigation district", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Irrigation district", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Thermal power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Thermal power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Downstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Hydro power generation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Hydro power generation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Upstream oil and gas", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Water management", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Water management", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Construction and transportation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Construction and transportation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Recreation", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Recreation", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Irrigation (private)", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Irrigation (private)", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Commercial", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Commercial", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other agricultural", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other agricultural", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other municipal use", waterShort: "No", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: ">=0.1", purpose: "Other municipal use", waterShort: "Yes", tier: "1A", measurement: "Weekly", reporting: "Monthly" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Irrigation district", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Irrigation district", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Thermal power generation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Thermal power generation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Downstream oil and gas", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Hydro power generation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Hydro power generation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Upstream oil and gas", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Water management", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Water management", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Construction and transportation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Construction and transportation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Recreation", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Recreation", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Irrigation (private)", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Irrigation (private)", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Commercial", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Commercial", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other agricultural", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other agricultural", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other municipal use", waterShort: "No", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "0.05-0.099", purpose: "Other municipal use", waterShort: "Yes", tier: "2A", measurement: "Monthly", reporting: "Annually" },
+{ allocation: "<500000", rate: "<0.05", purpose: "Irrigation district", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Irrigation district", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 50000 people", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 50000 people", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Thermal power generation", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Thermal power generation", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Downstream oil and gas", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Downstream oil and gas", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Hydro power generation", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Hydro power generation", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Large commercial (manufacturing and processing)", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Large commercial (manufacturing and processing)", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 10000 people", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 10000 people", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Upstream oil and gas", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Upstream oil and gas", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Irrigation (private) above 500000 m3", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Irrigation (private) above 500000 m3", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 2500 people", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 2500 people", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Water management", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Water management", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other agricultural above 500000 m3", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other agricultural above 500000 m3", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Construction and transportation", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Construction and transportation", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 1000 people", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Municipal use above 1000 people", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Recreation", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Recreation", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other industry (inc. mining)", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other industry (inc. mining)", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Irrigation (private)", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Irrigation (private)", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Commercial", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Commercial", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other agricultural", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other agricultural", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other municipal use", waterShort: "No", tier: "3", measurement: "Annually", reporting: "Annually " },
+{ allocation: "<500000", rate: "<0.05", purpose: "Other municipal use", waterShort: "Yes", tier: "3", measurement: "Annually", reporting: "Annually " },
+,
+  ];
+
+  // Fallback tier when no rule is defined at all:
+  // "lower" tier within each allocation band
+  const fallbackTierByAllocation = {
+    ">=1000000": "1A",
+    "500000-999999": "2A",
+    "<500000": "3"
+  };
+
+  // Tier → minimum measurement & reporting standards
+  const tierStandards = {
+    "1":  { measurement: "Daily",   reporting: "Weekly"   },
+    "1A": { measurement: "Weekly",  reporting: "Monthly"  },
+    "2":  { measurement: "Monthly", reporting: "Quarterly"},
+    "2A": { measurement: "Monthly", reporting: "Annually" },
+    "3":  { measurement: "Annually",reporting: "Annually" }
+  };
+
+  // Order of tiers for choosing the "more protective" one if needed
+  const tierRank = { "1": 1, "1A": 2, "2": 3, "2A": 4, "3": 5 };
+
+  function calculateTier() {
+    const allocation = document.getElementById('allocation').value;
+    const rate       = document.getElementById('rate').value;
+    const purpose    = document.getElementById('purpose').value;
+    const waterShort = document.getElementById('waterShort').value;
+    const resultsDiv = document.getElementById('results');
+
+    // Basic validation
+    if (!allocation || !rate || !purpose || !waterShort) {
+      resultsDiv.style.display = 'block';
+      resultsDiv.className = 'results warning';
+      resultsDiv.innerHTML = `
+        <h2>Missing input</h2>
+        <p>Please select all four criteria to view the assigned tier.</p>
+      `;
+      return;
+    }
+
+    let tier, measurement, reporting;
+    let usedFallback = false;
+    let usedWSNeutral = false;
+
+    // 1) Exact match (all four criteria, incl. water-short)
+    const exactMatch = rules.find(r =>
+      r.allocation === allocation &&
+      r.rate === rate &&
+      r.purpose === purpose &&
+      r.waterShort === waterShort
+    );
+
+    if (exactMatch) {
+      tier = exactMatch.tier;
+      measurement = exactMatch.measurement;
+      reporting = exactMatch.reporting;
+    } else {
+      // 2) Water-short-neutral match: ignore waterShort, match on alloc + rate + purpose
+      const neutralMatches = rules.filter(r =>
+        r.allocation === allocation &&
+        r.rate === rate &&
+        r.purpose === purpose
+      );
+
+      if (neutralMatches.length > 0) {
+        usedWSNeutral = true;
+
+        // If there are multiple (Yes/No) with different tiers,
+        // pick the "more protective" (lowest rank number).
+        let best = neutralMatches[0];
+        for (const m of neutralMatches) {
+          if (tierRank[m.tier] < tierRank[best.tier]) {
+            best = m;
+          }
+        }
+
+        tier = best.tier;
+        measurement = best.measurement;
+        reporting = best.reporting;
+      } else {
+        // 3) No rule at all → allocation-based fallback
+        const fallbackTier = fallbackTierByAllocation[allocation];
+
+        if (!fallbackTier || !tierStandards[fallbackTier]) {
+          resultsDiv.style.display = 'block';
+          resultsDiv.className = 'results warning';
+          resultsDiv.innerHTML = `
+            <h2>No rule defined</h2>
+            <p>No tier is defined for this combination, and no allocation-based fallback is available.</p>
+          `;
+          return;
+        }
+
+        usedFallback = true;
+        tier = fallbackTier;
+        measurement = tierStandards[fallbackTier].measurement;
+        reporting = tierStandards[fallbackTier].reporting;
+      }
+    }
+
+    // Show results
+    resultsDiv.style.display = 'block';
+    resultsDiv.className = usedFallback ? 'results warning' : 'results';
+
+    let note = "";
+    if (usedFallback) {
+      note = `<p style="font-size:0.85rem; margin-top:6px;">
+                This tier was assigned using the allocation-based fallback rule
+                (lower tier within the allocation band) because no specific combination
+                is defined in the policy lookup table.
+              </p>`;
+    } else if (usedWSNeutral) {
+      note = `<p style="font-size:0.85rem; margin-top:6px;">
+                This tier was assigned using a water-short-neutral rule
+                (same allocation, rate, and purpose), as no specific water-short
+                variation was defined in the lookup table.
+              </p>`;
+    }
+
+    resultsDiv.innerHTML = `
+      <h2>Assigned Tier: <strong>Tier ${tier}</strong></h2>
+      <p><strong>Minimum measurement:</strong> ${measurement}</p>
+      <p><strong>Minimum reporting frequency:</strong> ${reporting}</p>
+      ${note}
+    `;
+  }
+</script>
+
+
+
+</body>
+</html>
